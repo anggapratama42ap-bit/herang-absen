@@ -47,26 +47,14 @@ export default function AdminPage() {
         setAttendance(formattedAtt);
       }
 
-      // 3. Ambil data gaji (Coba tabel 'gaji_pegawai', jika kosong/gagal, ambil dari 'salaries' atau 'employees')
-      let salData: any[] = [];
-      const resGaji = await supabase.from('gaji_pegawai').select('*');
-      if (resGaji.data && resGaji.data.length > 0) {
-        salData = resGaji.data;
-      } else {
-        const resSalaries = await supabase.from('salaries').select('*');
-        if (resSalaries.data && resSalaries.data.length > 0) {
-          salData = resSalaries.data;
-        } else if (empData) {
-          // Jika tabel gaji belum ada isinya, buat dummy otomatis dari data pegawai
-          salData = empData.map((emp) => ({
-            id: emp.id,
-            nama_pegawai: emp.nama || emp.name,
-            gaji_pokok: emp.gaji_pokok || 1500000,
-            potongan: emp.potongan || 0,
-          }));
-        }
+      // 3. Ambil data gaji secara langsung dan murni dari tabel 'gaji_pegawai'
+      const { data: salData, error: salError } = await supabase.from('gaji_pegawai').select('*');
+      if (salError) {
+        console.error('Error fetching gaji:', salError.message);
       }
-      setSalaries(salData);
+      if (salData) {
+        setSalaries(salData);
+      }
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -294,7 +282,7 @@ export default function AdminPage() {
             <div className="p-4 border-b border-slate-700 font-semibold text-lg flex justify-between items-center">
               <span>Rekapitulasi Gaji Pegawai</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/30">
-                Otomatis dari Database
+                Data dari Tabel Supabase
               </span>
             </div>
             <div className="overflow-x-auto">
@@ -311,13 +299,13 @@ export default function AdminPage() {
                   {salaries.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-4 text-center text-slate-400">
-                        Belum ada data gaji di database.
+                        Belum ada data gaji di tabel `gaji_pegawai`.
                       </td>
                     </tr>
                   ) : (
                     salaries.map((sal, index) => {
-                      const pokok = Number(sal.gaji_pokok || sal.salary || 1500000);
-                      const potongan = Number(sal.potongan || sal.cut || 0);
+                      const pokok = Number(sal.gaji_pokok || 0);
+                      const potongan = Number(sal.potongan || 0);
                       const bersih = pokok - potongan;
                       const namaSal = sal.nama_pegawai || sal.nama || sal.name || `Pegawai ${index + 1}`;
                       return (
