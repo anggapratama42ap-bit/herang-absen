@@ -147,7 +147,7 @@ export default function AdminPage() {
                   ) : (
                     attendance.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-700/30">
-                        <td className="p-3 font-medium">{item.nama_pegawai}</td>
+                        <td className="p-3 font-medium">{item.nama_pegawai || item.nama}</td>
                         <td className="p-3">
                           <span
                             className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -245,8 +245,8 @@ export default function AdminPage() {
                     ) : (
                       employees.map((emp) => (
                         <tr key={emp.id} className="hover:bg-slate-700/30">
-                          <td className="p-3 font-medium">{emp.nama}</td>
-                          <td className="p-3 text-slate-300">{emp.jabatan}</td>
+                          <td className="p-3 font-medium">{emp.nama || emp.name || '-'}</td>
+                          <td className="p-3 text-slate-300">{emp.jabatan || emp.role || '-'}</td>
                           <td className="p-3 font-mono text-xs text-slate-400">••••••</td>
                         </tr>
                       ))
@@ -289,7 +289,7 @@ export default function AdminPage() {
                       const bersih = Number(sal.gaji_pokok || 0) - Number(sal.potongan || 0);
                       return (
                         <tr key={sal.id} className="hover:bg-slate-700/30">
-                          <td className="p-3 font-medium">{sal.nama_pegawai}</td>
+                          <td className="p-3 font-medium">{sal.nama_pegawai || sal.nama || '-'}</td>
                           <td className="p-3 text-slate-300">
                             Rp {Number(sal.gaji_pokok || 0).toLocaleString('id-ID')}
                           </td>
