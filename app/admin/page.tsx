@@ -18,26 +18,40 @@ export default function AdminPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Ambil data absensi
-      const { data: attData } = await supabase
-        .from('attendance')
-        .select('*');
-      if (attData) {
-        // Urutkan manual berdasarkan waktu terbaru agar aman
-        const sortedAtt = attData.sort((a, b) => new Date(b.timestamp || b.created_at || 0).getTime() - new Date(a.timestamp || a.created_at || 0).getTime());
-        setAttendance(sortedAtt);
+      // Ambil data pegawai terlebih dahulu untuk pemetaan nama
+      const { data: empData } = await supabase.from('employees').select('*');
+      const empMap = new Map();
+      if (empData) {
+        setEmployees(empData);
+        empData.forEach((emp) => empMap.set(emp.id, emp.nama || emp.name));
       }
 
-      // Ambil data pegawai
-      const { data: empData } = await supabase
-        .from('employees')
-        .select('*');
-      if (empData) setEmployees(empData);
+      // Ambil data absensi
+      const { data: attData } = await supabase.from('attendance').select('*');
+      if (attData) {
+        // Gabungkan data absensi dengan nama pegawai dari map
+        const formattedAtt = attData.map((item) => {
+          const namaPegawai = empMap.get(item.employee_id) || item.nama_pegawai || item.nama || 'Pegawai';
+          // Ubah 'IN'/'OUT' menjadi 'Masuk'/'Pulang' jika perlu
+          let statusAbsen = item.status || item.type;
+          if (statusAbsen === 'IN') statusAbsen = 'Masuk';
+          if (statusAbsen === 'OUT') statusAbsen = 'Pulang';
+
+          return {
+            ...idToName(item),
+            nama_pegawai: namaPegawai,
+            status: statusAbsen,
+            timestamp: item.timestamp || item.created_at,
+          };
+        });
+
+        // Urutkan dari yang terbaru
+        formattedAtt.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+        setAttendance(formattedAtt);
+      }
 
       // Ambil data gaji
-      const { data: salData } = await supabase
-        .from('gaji_pegawai')
-        .select('*');
+      const { data: salData } = await supabase.from('gaji_pegawai').select('*');
       if (salData) setSalaries(salData);
 
     } catch (error) {
@@ -46,6 +60,8 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
+
+  const idToName = (item: any) => item;
 
   useEffect(() => {
     fetchData();
@@ -149,31 +165,28 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ) : (
-                    attendance.map((item) => {
-                      const waktuAbsen = item.timestamp || item.created_at;
-                      return (
-                        <tr key={item.id} className="hover:bg-slate-700/30">
-                          <td className="p-3 font-medium">{item.nama_pegawai || item.nama || item.employee_name || 'Pegawai'}</td>
-                          <td className="p-3">
-                            <span
-                              className={`px-2 py-1 rounded text-xs font-semibold ${
-                                item.status === 'Masuk'
-                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                              }`}
-                            >
-                              {item.status || 'Hadir'}
-                            </span>
-                          </td>
-                          <td className="p-3 text-slate-300">
-                            {waktuAbsen ? new Date(waktuAbsen).toLocaleString('id-ID') : '-'}
-                          </td>
-                          <td className="p-3 text-slate-400 font-mono text-xs">
-                            {item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'Lokasi tidak aktif'}
-                          </td>
-                        </tr>
-                      );
-                    })
+                    attendance.map((item, index) => (
+                      <tr key={item.id || index} className="hover:bg-slate-700/30">
+                        <td className="p-3 font-medium">{item.nama_pegawai}</td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-semibold ${
+                              item.status === 'Masuk' || item.status === 'IN'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            }`}
+                          >
+                            {item.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-300">
+                          {item.timestamp ? new Date(item.timestamp).toLocaleString('id-ID') : '-'}
+                        </td>
+                        <td className="p-3 text-slate-400 font-mono text-xs">
+                          {item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'Lokasi GPS'}
+                        </td>
+                      </tr>
+                    ))
                   )}
                 </tbody>
               </table>
@@ -184,7 +197,6 @@ export default function AdminPage() {
         {/* Konten Tab Manajemen Pegawai */}
         {activeTab === 'employees' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Form Tambah */}
             <div className="bg-slate-800 p-5 rounded-xl border border-slate-700 shadow-lg h-fit">
               <h2 className="text-lg font-semibold mb-4 text-emerald-400">Tambah Pegawai Baru</h2>
               <form onSubmit={handleAddEmployee} className="space-y-4">
@@ -228,7 +240,6 @@ export default function AdminPage() {
               </form>
             </div>
 
-            {/* List Pegawai */}
             <div className="md:col-span-2 bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
               <div className="p-4 border-b border-slate-700 font-semibold text-lg">
                 Daftar Pegawai Terdaftar
