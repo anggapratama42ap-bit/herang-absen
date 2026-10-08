@@ -21,9 +21,12 @@ export default function AdminPage() {
       // Ambil data absensi
       const { data: attData } = await supabase
         .from('attendance')
-        .select('*')
-        .order('timestamp', { ascending: false });
-      if (attData) setAttendance(attData);
+        .select('*');
+      if (attData) {
+        // Urutkan manual berdasarkan waktu terbaru agar aman
+        const sortedAtt = attData.sort((a, b) => new Date(b.timestamp || b.created_at || 0).getTime() - new Date(a.timestamp || a.created_at || 0).getTime());
+        setAttendance(sortedAtt);
+      }
 
       // Ambil data pegawai
       const { data: empData } = await supabase
@@ -124,8 +127,9 @@ export default function AdminPage() {
         {/* Konten Tab Rekap Kehadiran */}
         {activeTab === 'attendance' && (
           <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden shadow-lg">
-            <div className="p-4 border-b border-slate-700 font-semibold text-lg">
-              Daftar Kehadiran Masuk & Pulang
+            <div className="p-4 border-b border-slate-700 font-semibold text-lg flex justify-between items-center">
+              <span>Daftar Kehadiran Masuk & Pulang</span>
+              <span className="text-xs text-slate-400">Total: {attendance.length} catatan</span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -145,28 +149,31 @@ export default function AdminPage() {
                       </td>
                     </tr>
                   ) : (
-                    attendance.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-700/30">
-                        <td className="p-3 font-medium">{item.nama_pegawai || item.nama}</td>
-                        <td className="p-3">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-semibold ${
-                              item.status === 'Masuk'
-                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-300">
-                          {new Date(item.timestamp).toLocaleString('id-ID')}
-                        </td>
-                        <td className="p-3 text-slate-400 font-mono text-xs">
-                          {item.latitude}, {item.longitude}
-                        </td>
-                      </tr>
-                    ))
+                    attendance.map((item) => {
+                      const waktuAbsen = item.timestamp || item.created_at;
+                      return (
+                        <tr key={item.id} className="hover:bg-slate-700/30">
+                          <td className="p-3 font-medium">{item.nama_pegawai || item.nama || item.employee_name || 'Pegawai'}</td>
+                          <td className="p-3">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-semibold ${
+                                item.status === 'Masuk'
+                                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                  : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              }`}
+                            >
+                              {item.status || 'Hadir'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-300">
+                            {waktuAbsen ? new Date(waktuAbsen).toLocaleString('id-ID') : '-'}
+                          </td>
+                          <td className="p-3 text-slate-400 font-mono text-xs">
+                            {item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : 'Lokasi tidak aktif'}
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
