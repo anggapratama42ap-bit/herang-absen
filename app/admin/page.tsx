@@ -18,7 +18,7 @@ export default function AdminPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Ambil data pegawai terlebih dahulu untuk pemetaan nama
+      // 1. Ambil data pegawai
       const { data: empData } = await supabase.from('employees').select('*');
       const empMap = new Map();
       if (empData) {
@@ -26,33 +26,47 @@ export default function AdminPage() {
         empData.forEach((emp) => empMap.set(emp.id, emp.nama || emp.name));
       }
 
-      // Ambil data absensi
+      // 2. Ambil data absensi
       const { data: attData } = await supabase.from('attendance').select('*');
       if (attData) {
-        // Gabungkan data absensi dengan nama pegawai dari map
         const formattedAtt = attData.map((item) => {
           const namaPegawai = empMap.get(item.employee_id) || item.nama_pegawai || item.nama || 'Pegawai';
-          // Ubah 'IN'/'OUT' menjadi 'Masuk'/'Pulang' jika perlu
           let statusAbsen = item.status || item.type;
           if (statusAbsen === 'IN') statusAbsen = 'Masuk';
           if (statusAbsen === 'OUT') statusAbsen = 'Pulang';
 
           return {
-            ...idToName(item),
+            ...item,
             nama_pegawai: namaPegawai,
             status: statusAbsen,
             timestamp: item.timestamp || item.created_at,
           };
         });
 
-        // Urutkan dari yang terbaru
         formattedAtt.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
         setAttendance(formattedAtt);
       }
 
-      // Ambil data gaji
-      const { data: salData } = await supabase.from('gaji_pegawai').select('*');
-      if (salData) setSalaries(salData);
+      // 3. Ambil data gaji (Coba tabel 'gaji_pegawai', jika kosong/gagal, ambil dari 'salaries' atau 'employees')
+      let salData: any[] = [];
+      const resGaji = await supabase.from('gaji_pegawai').select('*');
+      if (resGaji.data && resGaji.data.length > 0) {
+        salData = resGaji.data;
+      } else {
+        const resSalaries = await supabase.from('salaries').select('*');
+        if (resSalaries.data && resSalaries.data.length > 0) {
+          salData = resSalaries.data;
+        } else if (empData) {
+          // Jika tabel gaji belum ada isinya, buat dummy otomatis dari data pegawai
+          salData = empData.map((emp) => ({
+            id: emp.id,
+            nama_pegawai: emp.nama || emp.name,
+            gaji_pokok: emp.gaji_pokok || 1500000,
+            potongan: emp.potongan || 0,
+          }));
+        }
+      }
+      setSalaries(salData);
 
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -60,8 +74,6 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
-
-  const idToName = (item: any) => item;
 
   useEffect(() => {
     fetchData();
@@ -299,20 +311,23 @@ export default function AdminPage() {
                   {salaries.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-4 text-center text-slate-400">
-                        Belum ada data gaji di tabel Supabase.
+                        Belum ada data gaji di database.
                       </td>
                     </tr>
                   ) : (
-                    salaries.map((sal) => {
-                      const bersih = Number(sal.gaji_pokok || 0) - Number(sal.potongan || 0);
+                    salaries.map((sal, index) => {
+                      const pokok = Number(sal.gaji_pokok || sal.salary || 1500000);
+                      const potongan = Number(sal.potongan || sal.cut || 0);
+                      const bersih = pokok - potongan;
+                      const namaSal = sal.nama_pegawai || sal.nama || sal.name || `Pegawai ${index + 1}`;
                       return (
-                        <tr key={sal.id} className="hover:bg-slate-700/30">
-                          <td className="p-3 font-medium">{sal.nama_pegawai || sal.nama || '-'}</td>
+                        <tr key={sal.id || index} className="hover:bg-slate-700/30">
+                          <td className="p-3 font-medium">{namaSal}</td>
                           <td className="p-3 text-slate-300">
-                            Rp {Number(sal.gaji_pokok || 0).toLocaleString('id-ID')}
+                            Rp {pokok.toLocaleString('id-ID')}
                           </td>
                           <td className="p-3 text-rose-400">
-                            - Rp {Number(sal.potongan || 0).toLocaleString('id-ID')}
+                            - Rp {potongan.toLocaleString('id-ID')}
                           </td>
                           <td className="p-3 font-semibold text-emerald-400">
                             Rp {bersih.toLocaleString('id-ID')}
