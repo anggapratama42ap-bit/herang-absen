@@ -18,7 +18,7 @@ export default function AdminPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data pegawai (beserta gaji yang langsung nempel di tabel employees)
+      // 1. Ambil data pegawai dari tabel 'employees'
       const { data: empData } = await supabase.from('employees').select('*');
       const empMap = new Map();
       if (empData) {
@@ -292,7 +292,7 @@ export default function AdminPage() {
             <div className="p-4 border-b border-slate-700 font-semibold text-lg flex justify-between items-center">
               <span>Rekapitulasi Gaji Pegawai</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/30">
-                Terhubung ke Tabel Pegawai
+                Otomatis Sinkron
               </span>
             </div>
             <div className="overflow-x-auto">
@@ -319,10 +319,11 @@ export default function AdminPage() {
                       const potongan = Number(emp.potongan || 0);
                       const bersih = pokok - potongan;
                       const namaEmp = emp.nama || emp.name || `Pegawai ${index + 1}`;
+                      const jabatanEmp = emp.jabatan || emp.role || 'Staff';
                       return (
                         <tr key={emp.id || index} className="hover:bg-slate-700/30">
                           <td className="p-3 font-medium">{namaEmp}</td>
-                          <td className="p-3 text-slate-300">{emp.jabatan || 'Staff'}</td>
+                          <td className="p-3 text-slate-300">{jabatanEmp}</td>
                           <td className="p-3 text-slate-300">
                             Rp {pokok.toLocaleString('id-ID')}
                           </td>
