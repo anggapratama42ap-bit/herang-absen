@@ -7,18 +7,18 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'attendance' | 'employees' | 'salary'>('attendance');
   const [attendance, setAttendance] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [salaries, setSalaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form Tambah Pegawai
   const [newNama, setNewNama] = useState('');
   const [newJabatan, setNewJabatan] = useState('');
   const [newPin, setNewPin] = useState('');
+  const [newGaji, setNewGaji] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Ambil data pegawai
+      // 1. Ambil data pegawai (beserta gaji yang langsung nempel di tabel employees)
       const { data: empData } = await supabase.from('employees').select('*');
       const empMap = new Map();
       if (empData) {
@@ -47,15 +47,6 @@ export default function AdminPage() {
         setAttendance(formattedAtt);
       }
 
-      // 3. Ambil data gaji secara langsung dan murni dari tabel 'gaji_pegawai'
-      const { data: salData, error: salError } = await supabase.from('gaji_pegawai').select('*');
-      if (salError) {
-        console.error('Error fetching gaji:', salError.message);
-      }
-      if (salData) {
-        setSalaries(salData);
-      }
-
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -76,7 +67,13 @@ export default function AdminPage() {
 
     const { error } = await supabase
       .from('employees')
-      .insert([{ nama: newNama, jabatan: newJabatan || 'Staff', pin: newPin }]);
+      .insert([{ 
+        nama: newNama, 
+        jabatan: newJabatan || 'Staff', 
+        pin: newPin,
+        gaji_pokok: Number(newGaji) || 1200000,
+        potongan: 0
+      }]);
 
     if (error) {
       alert('Gagal menambah pegawai: ' + error.message);
@@ -85,6 +82,7 @@ export default function AdminPage() {
       setNewNama('');
       setNewJabatan('');
       setNewPin('');
+      setNewGaji('');
       fetchData();
     }
   };
@@ -231,6 +229,16 @@ export default function AdminPage() {
                     placeholder="Contoh: 123456"
                   />
                 </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Gaji Pokok (Rp)</label>
+                  <input
+                    type="number"
+                    value={newGaji}
+                    onChange={(e) => setNewGaji(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm focus:outline-none focus:border-emerald-500"
+                    placeholder="Contoh: 1200000"
+                  />
+                </div>
                 <button
                   type="submit"
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-medium text-sm transition"
@@ -250,13 +258,14 @@ export default function AdminPage() {
                     <tr className="bg-slate-700/50 text-slate-300 text-sm">
                       <th className="p-3">Nama</th>
                       <th className="p-3">Jabatan</th>
+                      <th className="p-3">Gaji Pokok</th>
                       <th className="p-3">PIN</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700 text-sm">
                     {employees.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="p-4 text-center text-slate-400">
+                        <td colSpan={4} className="p-4 text-center text-slate-400">
                           Belum ada data pegawai.
                         </td>
                       </tr>
@@ -265,6 +274,7 @@ export default function AdminPage() {
                         <tr key={emp.id} className="hover:bg-slate-700/30">
                           <td className="p-3 font-medium">{emp.nama || emp.name || '-'}</td>
                           <td className="p-3 text-slate-300">{emp.jabatan || emp.role || '-'}</td>
+                          <td className="p-3 text-emerald-400">Rp {Number(emp.gaji_pokok || 1200000).toLocaleString('id-ID')}</td>
                           <td className="p-3 font-mono text-xs text-slate-400">••••••</td>
                         </tr>
                       ))
@@ -282,7 +292,7 @@ export default function AdminPage() {
             <div className="p-4 border-b border-slate-700 font-semibold text-lg flex justify-between items-center">
               <span>Rekapitulasi Gaji Pegawai</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full border border-emerald-500/30">
-                Data dari Tabel Supabase
+                Terhubung ke Tabel Pegawai
               </span>
             </div>
             <div className="overflow-x-auto">
@@ -290,27 +300,29 @@ export default function AdminPage() {
                 <thead>
                   <tr className="bg-slate-700/50 text-slate-300 text-sm">
                     <th className="p-3">Nama Pegawai</th>
+                    <th className="p-3">Jabatan</th>
                     <th className="p-3">Gaji Pokok</th>
                     <th className="p-3">Potongan</th>
                     <th className="p-3">Total Gaji Bersih</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-700 text-sm">
-                  {salaries.length === 0 ? (
+                  {employees.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-4 text-center text-slate-400">
-                        Belum ada data gaji di tabel `gaji_pegawai`.
+                      <td colSpan={5} className="p-4 text-center text-slate-400">
+                        Belum ada data pegawai.
                       </td>
                     </tr>
                   ) : (
-                    salaries.map((sal, index) => {
-                      const pokok = Number(sal.gaji_pokok || 0);
-                      const potongan = Number(sal.potongan || 0);
+                    employees.map((emp, index) => {
+                      const pokok = Number(emp.gaji_pokok || 1200000);
+                      const potongan = Number(emp.potongan || 0);
                       const bersih = pokok - potongan;
-                      const namaSal = sal.nama_pegawai || sal.nama || sal.name || `Pegawai ${index + 1}`;
+                      const namaEmp = emp.nama || emp.name || `Pegawai ${index + 1}`;
                       return (
-                        <tr key={sal.id || index} className="hover:bg-slate-700/30">
-                          <td className="p-3 font-medium">{namaSal}</td>
+                        <tr key={emp.id || index} className="hover:bg-slate-700/30">
+                          <td className="p-3 font-medium">{namaEmp}</td>
+                          <td className="p-3 text-slate-300">{emp.jabatan || 'Staff'}</td>
                           <td className="p-3 text-slate-300">
                             Rp {pokok.toLocaleString('id-ID')}
                           </td>
